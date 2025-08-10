@@ -2,38 +2,44 @@ version: "3.9"
 services:
   redis:
     image: redis:7-alpine
-    container_name: mr_redis
-    ports: ["6379:6379"]
+    # no host port -> avoids 6379 conflicts
+    command: ["redis-server","--appendonly","yes"]
+    healthcheck:
+      test: ["CMD","redis-cli","ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   api:
     build:
       context: .
       dockerfile: Dockerfile.api
-    container_name: mr_api
     environment:
-      REDIS_URL: redis://redis:6379/0
-      STRIPE_CHECKOUT_LINK: ${STRIPE_CHECKOUT_LINK:-}
-      STORAGE_DIR: /data
-      PORT_API: 8087
-    depends_on: [redis]
+      REDIS_URL: ${REDIS_URL}
+      STRIPE_CHECKOUT_LINK: ${STRIPE_CHECKOUT_LINK}
+      STORAGE_DIR: ${STORAGE_DIR}
+      PORT_API: ${PORT_API}
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes: [ "./data:/data" ]
-    ports: [ "8087:8087" ]
+    ports: [ "${PORT_API}:8087" ]
 
   worker:
     build:
       context: .
       dockerfile: Dockerfile.worker
-    container_name: mr_worker
     environment:
-      REDIS_URL: redis://redis:6379/0
-      STORAGE_DIR: /data
-    depends_on: [redis]
+      REDIS_URL: ${REDIS_URL}
+      STORAGE_DIR: ${STORAGE_DIR}
+    depends_on:
+      redis:
+        condition: service_healthy
     volumes: [ "./data:/data" ]
 
   static:
     image: nginx:alpine
-    container_name: mr_static
     depends_on: [api]
     volumes:
       - ./data/sites:/usr/share/nginx/html:ro
-    ports: [ "8088:80" ]
+    ports: [ "${PORT_STATIC}:80" ]

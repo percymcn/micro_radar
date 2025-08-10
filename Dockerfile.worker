@@ -1,6 +1,6 @@
 FROM --platform=linux/arm64 python:3.11-slim
 WORKDIR /app
-COPY requirements.txt .
+COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
-CMD ["celery", "-A", "app.tasks.celery_app", "worker", "-l", "INFO"]
+CMD ["celery","-A","app.tasks.celery_app","worker","-l","INFO"]
